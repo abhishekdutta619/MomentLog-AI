@@ -1,0 +1,78 @@
+erDiagram
+    User ||--o{ Moment : writes
+    User ||--o{ Tag : creates
+    User ||--o{ Task : has
+    User ||--o{ Goal : has
+    User ||--o{ Account : "auth accounts"
+    User ||--o{ Session : "auth sessions"
+
+    Moment }o--o{ Tag : tagged_with
+    Moment ||--o| MomentEmbedding : has
+    Moment ||--o{ AIJob : triggers
+
+    Goal ||--o{ Milestone : contains
+
+    User {
+        string id PK
+        string email
+        string passwordHash
+        datetime createdAt
+    }
+
+    Moment {
+        string id PK
+        string userId FK
+        text content
+        int moodScore
+        float weatherTempC
+        string weatherCondition
+        text aiSummary
+        datetime createdAt
+    }
+
+    Tag {
+        string id PK
+        string userId FK
+        string name
+    }
+
+    MomentEmbedding {
+        string id PK
+        string momentId FK
+        vector vector_1536
+        string model
+    }
+
+    AIJob {
+        string id PK
+        string momentId FK
+        string type
+        string status
+        int attempts
+        text error
+    }
+
+    Task {
+        string id PK
+        string userId FK
+        string title
+        string priority
+        datetime dueDate
+        boolean completed
+    }
+
+    Goal {
+        string id PK
+        string userId FK
+        string title
+        text description
+        datetime targetDate
+    }
+
+    Milestone {
+        string id PK
+        string goalId FK
+        string title
+        boolean completed
+        int order
+    }

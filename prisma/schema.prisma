@@ -1,0 +1,209 @@
+// MomentLog AI — Prisma schema (MVP)
+// Single source of truth: also generates a Python client (prisma-client-py)
+// for the FastAPI AI worker, so both services share one schema.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+// ── Auth (Auth.js / NextAuth Prisma adapter) ────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String? // only set for credentials-based signup
+
+  accounts Account[]
+  sessions Session[]
+
+  moments Moment[]
+  tasks   Task[]
+  goals   Goal[]
+  tags    Tag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ── Core: Moments ────────────────────────────────────────────────────
+
+model Moment {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content String @db.Text // markdown body
+
+  // Mood — one quick check-in per Moment (1-5), optional. Flat field by design:
+  // always 1:1 with a Moment, not worth a separate table.
+  moodScore Int?
+
+  // Weather — auto-attached at time of writing, kept flat/simple by design
+  // ("context, not a widget" — see brand doc).
+  weatherTempC     Float?
+  weatherCondition String?
+  weatherIcon      String?
+
+  // AI-generated
+  aiSummary String? @db.Text
+
+  tags      Tag[]            @relation("MomentTags")
+  embedding MomentEmbedding?
+  aiJobs    AIJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model Tag {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+
+  moments Moment[] @relation("MomentTags")
+
+  @@unique([userId, name])
+}
+
+// pgvector column. Prisma can't express cosine-distance queries in its
+// query builder, so semantic search reads go through $queryRaw using the
+// `<=>` operator (e.g. `ORDER BY vector <=> $1 LIMIT 10`).
+model MomentEmbedding {
+  id       String @id @default(cuid())
+  momentId String @unique
+  moment   Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+
+  vector Unsupported("vector(1536)")
+  model  String // e.g. "text-embedding-3-small" — kept so we can re-embed cleanly if the model changes
+
+  createdAt DateTime @default(now())
+}
+
+// ── Background job queue (Postgres-backed, MVP — no Redis) ───────────
+
+enum AIJobType {
+  EMBED
+  SUMMARIZE
+}
+
+enum AIJobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model AIJob {
+  id       String @id @default(cuid())
+  momentId String
+  moment   Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+
+  type     AIJobType
+  status   AIJobStatus @default(PENDING)
+  attempts Int         @default(0)
+  error    String?     @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, type])
+}
+
+// ── Productivity ──────────────────────────────────────────────────────
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Task {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  priority  TaskPriority @default(MEDIUM)
+  dueDate   DateTime?
+  completed Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, completed])
+}
+
+model Goal {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?   @db.Text
+  targetDate  DateTime?
+
+  milestones Milestone[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Milestone {
+  id     String @id @default(cuid())
+  goalId String
+  goal   Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  title       String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  order       Int       @default(0)
+}

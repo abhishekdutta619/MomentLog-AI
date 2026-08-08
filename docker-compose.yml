@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: momentlog
+      POSTGRES_PASSWORD: momentlog
+      POSTGRES_DB: momentlog
+    ports:
+      - "5432:5432"
+    volumes:
+      - momentlog_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  momentlog_postgres_data:

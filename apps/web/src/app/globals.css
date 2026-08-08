@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Brand palette (docs/PRD.md, Section 5) — deliberately small, no gradients.
+  Dark mode is a value swap on these same variables, not a parallel palette.
+*/
+:root {
+  --color-background: #f7fafc;
+  --color-foreground: #2d3748;
+  --color-primary: #2d3748;
+  --color-primary-foreground: #f7fafc;
+  --color-muted: #edf2f7;
+  --color-muted-foreground: #718096;
+  --color-border: #e2e8f0;
+}
+
+.dark {
+  --color-background: #1a202c;
+  --color-foreground: #f7fafc;
+  --color-primary: #f7fafc;
+  --color-primary-foreground: #1a202c;
+  --color-muted: #2d3748;
+  --color-muted-foreground: #a0aec0;
+  --color-border: #2d3748;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
