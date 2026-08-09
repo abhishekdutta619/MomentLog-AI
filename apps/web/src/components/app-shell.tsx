@@ -36,17 +36,23 @@ export function AppShell({
       </aside>
 
       <div className="flex flex-1 flex-col">
-        {/* Mobile top bar */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
-          <span className="text-lg font-semibold text-foreground">MomentLog</span>
-          <button
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open menu"
-            className="rounded-md p-2 text-foreground hover:bg-muted"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
+        {/* Mobile top bar — only rendered while the nav overlay is closed.
+            Having both the trigger and the overlay mounted at once is
+            redundant (two "open the menu" affordances for one action), and
+            it sidesteps relying on z-index alone to keep the trigger from
+            showing through the backdrop. */}
+        {!mobileNavOpen && (
+          <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
+            <span className="text-lg font-semibold text-foreground">MomentLog</span>
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open menu"
+              className="rounded-md p-2 text-foreground hover:bg-muted"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </div>
+        )}
 
         {/* Mobile nav overlay */}
         {mobileNavOpen && (

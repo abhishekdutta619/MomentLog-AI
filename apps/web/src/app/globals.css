@@ -5,28 +5,34 @@
 /*
   Brand palette (docs/PRD.md, Section 5) — deliberately small, no gradients.
   Dark mode is a value swap on these same variables, not a parallel palette.
+
+  Values are space-separated RGB channels (not hex, not rgb()) so Tailwind
+  can inject an alpha channel for opacity-modifier utilities like
+  bg-foreground/20 — see tailwind.config.ts, which wraps these in
+  rgb(var(--x) / <alpha-value>). A plain hex string here would silently
+  break any /opacity utility applied to these colors.
 */
 :root {
-  --color-background: #f7fafc;
-  --color-foreground: #2d3748;
-  --color-primary: #2d3748;
-  --color-primary-foreground: #f7fafc;
-  --color-muted: #edf2f7;
-  --color-muted-foreground: #718096;
-  --color-border: #e2e8f0;
+  --color-background: 247 250 252; /* #f7fafc */
+  --color-foreground: 45 55 72; /* #2d3748 */
+  --color-primary: 45 55 72; /* #2d3748 */
+  --color-primary-foreground: 247 250 252; /* #f7fafc */
+  --color-muted: 237 242 247; /* #edf2f7 */
+  --color-muted-foreground: 113 128 150; /* #718096 */
+  --color-border: 226 232 240; /* #e2e8f0 */
 }
 
 .dark {
-  --color-background: #1a202c;
-  --color-foreground: #f7fafc;
-  --color-primary: #f7fafc;
-  --color-primary-foreground: #1a202c;
-  --color-muted: #2d3748;
-  --color-muted-foreground: #a0aec0;
-  --color-border: #2d3748;
+  --color-background: 26 32 44; /* #1a202c */
+  --color-foreground: 247 250 252; /* #f7fafc */
+  --color-primary: 247 250 252; /* #f7fafc */
+  --color-primary-foreground: 26 32 44; /* #1a202c */
+  --color-muted: 45 55 72; /* #2d3748 */
+  --color-muted-foreground: 160 174 192; /* #a0aec0 */
+  --color-border: 45 55 72; /* #2d3748 */
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-foreground));
 }
