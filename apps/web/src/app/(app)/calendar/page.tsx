@@ -4,7 +4,7 @@ export default function CalendarPage() {
   return (
     <ComingSoon
       title="Calendar"
-      note="The Moments calendar view arrives alongside the journal editor in Phase 1, Part 4."
+      note="The Moments calendar view arrives in Phase 1, Part 5."
     />
   );
 }
