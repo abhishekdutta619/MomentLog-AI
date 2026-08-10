@@ -86,6 +86,15 @@ Full design rationale: [`docs/PRD.md`](./docs/PRD.md), [`docs/phase0-part3-api-d
 
 ---
 
+## Known Limitations
+
+Tracked deliberately, not overlooked:
+
+- **No rate limiting on `/api/auth/register` or the credentials login flow.** Fine for local development; needs a per-IP/per-email throttle before this is ever exposed publicly. Tracked for Phase 6 (production hardening).
+- **`sharp` is a direct dependency but isn't called anywhere in the app yet.** It's pinned via `overrides` as part of the npm audit fix (see commit history) and is what Next.js's built-in image optimizer (`next/image`) would use once that's introduced, or R2 avatar handling later. Not dead weight — just not exercised yet.
+
+---
+
 ## Project Structure
 
 ```

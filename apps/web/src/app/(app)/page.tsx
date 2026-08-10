@@ -1,10 +1,5 @@
 import { auth } from "@/lib/auth";
-
-function getGreeting(hour: number) {
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
+import { DashboardGreeting } from "@/components/dashboard-greeting";
 
 const MOODS = [
   { emoji: "😊", label: "Great" },
@@ -21,23 +16,9 @@ export default async function DashboardPage() {
   const session = await auth();
   const firstName = (session?.user?.name ?? session?.user?.email ?? "").split(" ")[0];
 
-  const now = new Date();
-  const greeting = getGreeting(now.getHours());
-  const dateLabel = now.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
   return (
     <div className="mx-auto max-w-2xl space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          {greeting}
-          {firstName ? `, ${firstName}` : ""}.
-        </h1>
-        <p className="text-sm text-muted-foreground">{dateLabel}</p>
-      </div>
+      <DashboardGreeting firstName={firstName} />
 
       <section>
         <p className="mb-3 text-sm text-muted-foreground">How are you feeling today?</p>
@@ -46,13 +27,21 @@ export default async function DashboardPage() {
             <a
               key={mood.label}
               href="/moments"
-              title={mood.label}
+              title={`Write about feeling ${mood.label.toLowerCase()}`}
               className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-xl transition-colors hover:bg-muted"
             >
               {mood.emoji}
             </a>
           ))}
         </div>
+        {/* Honest about what this actually does right now — these navigate
+            to the editor, they don't log a mood value yet. Moment.moodScore
+            exists in the schema but isn't wired up until Phase 2. A button
+            that looks like it saves something but doesn't is a worse
+            experience than one that's upfront about what it does. */}
+        <p className="mt-2 text-xs text-muted-foreground">
+          Mood tracking arrives in Phase 2 — for now, this starts a new Moment.
+        </p>
       </section>
 
       <section>
