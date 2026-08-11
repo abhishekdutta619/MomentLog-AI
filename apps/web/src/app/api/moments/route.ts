@@ -60,13 +60,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const { content, tags } = parsed.data;
+  const { content, tags, moodScore } = parsed.data;
   const userId = session.user.id;
 
   const moment = await prisma.moment.create({
     data: {
       userId,
       content,
+      moodScore: moodScore ?? null,
       tags: {
         connectOrCreate: tags.map((name) => ({
           where: { userId_name: { userId, name } },

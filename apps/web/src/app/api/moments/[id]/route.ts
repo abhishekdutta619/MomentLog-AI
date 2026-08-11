@@ -14,9 +14,6 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
   const { id } = await params;
 
-  // userId is part of the where clause, not a check applied after the
-  // fetch — this is what keeps a user from ever being able to distinguish
-  // "doesn't exist" from "exists but isn't yours" via a 404 either way.
   const moment = await prisma.moment.findFirst({
     where: { id, userId: session.user.id },
     include: { tags: true },
@@ -52,18 +49,20 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     );
   }
 
-  const { content, tags } = parsed.data;
+  const { content, tags, moodScore } = parsed.data;
 
   const moment = await prisma.moment.update({
     where: { id },
     data: {
       ...(content !== undefined ? { content } : {}),
+      // moodScore is nullable-and-optional in the schema: `undefined` means
+      // "field wasn't sent, leave it alone"; `null` means "clear it". Both
+      // need to be distinguishable, so this only touches moodScore when the
+      // key was actually present in the parsed payload.
+      ...(moodScore !== undefined ? { moodScore } : {}),
       ...(tags !== undefined
         ? {
             tags: {
-              // Fully replace the tag set: disconnect everything, then
-              // reconnect (or create) the incoming list. Simpler and less
-              // error-prone than diffing old vs. new tags by hand.
               set: [],
               connectOrCreate: tags.map((name) => ({
                 where: { userId_name: { userId, name } },
@@ -97,8 +96,6 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // MomentEmbedding and AIJob rows cascade on delete (see schema.prisma's
-  // onDelete: Cascade on both relations) — nothing extra to clean up here.
   await prisma.moment.delete({ where: { id } });
 
   return NextResponse.json({ success: true });

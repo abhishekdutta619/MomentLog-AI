@@ -7,15 +7,6 @@ import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
-// All date math here is UTC-based, deliberately matching the calendar API
-// route from Part 3 (which groups Moments by ISO date via toISOString()).
-// Keeping both sides on the same calendar avoids an off-by-one-day bug
-// where a Moment written late at night lands on a different day here than
-// it does server-side. The trade-off: "today" on this grid is UTC's today,
-// which can be off by a few hours from the user's local calendar day near
-// midnight — acceptable for MVP, worth revisiting with per-user timezones
-// later if it matters.
-
 function getMonthGrid(year: number, month: number) {
   const firstDay = new Date(Date.UTC(year, month, 1));
   const lastDay = new Date(Date.UTC(year, month + 1, 0));
@@ -37,13 +28,33 @@ function formatDayKey(year: number, month: number, day: number) {
   return `${formatMonthKey(year, month)}-${String(day).padStart(2, "0")}`;
 }
 
+// Discrete opacity steps on the brand's single primary color, not a
+// separate red-to-green palette — a traffic-light mood scale would clash
+// hard with the brand's deliberately restrained, no-bright-colors
+// aesthetic (see docs on brand philosophy: "no gradients"). Darker/fuller
+// dot = better average mood that day; a day with entries but no mood
+// recorded on any of them gets a neutral gray dot instead of guessing.
+function moodDotClass(avgMood: number | null) {
+  if (avgMood === null) return "bg-muted-foreground";
+  if (avgMood < 1.5) return "bg-primary/30";
+  if (avgMood < 2.5) return "bg-primary/50";
+  if (avgMood < 3.5) return "bg-primary/65";
+  if (avgMood < 4.5) return "bg-primary/80";
+  return "bg-primary";
+}
+
+interface DayInfo {
+  count: number;
+  avgMood: number | null;
+}
+
 export default function CalendarPage() {
   const router = useRouter();
   const today = new Date();
   const [year, setYear] = useState(today.getUTCFullYear());
   const [month, setMonth] = useState(today.getUTCMonth()); // 0-indexed
 
-  const [days, setDays] = useState<Record<string, number>>({});
+  const [days, setDays] = useState<Record<string, DayInfo>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,7 +146,8 @@ export default function CalendarPage() {
           if (day === null) return <div key={i} />;
 
           const dayKey = formatDayKey(year, month, day);
-          const count = days[dayKey] ?? 0;
+          const info = days[dayKey];
+          const count = info?.count ?? 0;
           const isToday = dayKey === todayKey;
 
           return (
@@ -152,7 +164,9 @@ export default function CalendarPage() {
               )}
             >
               <span>{day}</span>
-              {count > 0 && <span className="mt-0.5 h-1 w-1 rounded-full bg-primary" />}
+              {count > 0 && (
+                <span className={cn("mt-0.5 h-1 w-1 rounded-full", moodDotClass(info?.avgMood ?? null))} />
+              )}
             </button>
           );
         })}

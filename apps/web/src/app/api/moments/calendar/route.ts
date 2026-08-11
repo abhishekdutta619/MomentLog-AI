@@ -27,16 +27,30 @@ export async function GET(req: Request) {
       userId: session.user.id,
       createdAt: { gte: start, lt: end },
     },
-    select: { id: true, createdAt: true },
+    select: { id: true, createdAt: true, moodScore: true },
   });
 
-  // Grouped by day (YYYY-MM-DD) → entry count for that day. Mood shows up
-  // here too once Phase 2 adds the mood check-in UI — for now there's
-  // nothing to aggregate since moodScore has no way to be set yet.
-  const days: Record<string, number> = {};
+  // Grouped by day (YYYY-MM-DD) → entry count + average mood for that day.
+  // avgMood is null for days with entries but no mood recorded on any of
+  // them — distinct from "no entries at all" (day simply absent from the
+  // response), which the calendar UI treats differently (unclickable).
+  const grouped: Record<string, { count: number; moodSum: number; moodCount: number }> = {};
   for (const m of moments) {
     const day = m.createdAt.toISOString().slice(0, 10);
-    days[day] = (days[day] ?? 0) + 1;
+    if (!grouped[day]) grouped[day] = { count: 0, moodSum: 0, moodCount: 0 };
+    grouped[day].count += 1;
+    if (m.moodScore != null) {
+      grouped[day].moodSum += m.moodScore;
+      grouped[day].moodCount += 1;
+    }
+  }
+
+  const days: Record<string, { count: number; avgMood: number | null }> = {};
+  for (const [day, g] of Object.entries(grouped)) {
+    days[day] = {
+      count: g.count,
+      avgMood: g.moodCount > 0 ? Math.round((g.moodSum / g.moodCount) * 10) / 10 : null,
+    };
   }
 
   return NextResponse.json({ month, days });
