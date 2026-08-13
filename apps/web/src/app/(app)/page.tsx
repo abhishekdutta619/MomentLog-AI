@@ -9,24 +9,37 @@ const PRIORITY_LABELS: Record<string, string> = {
   LOW: "Low",
 };
 
+// Route Handlers get this kind of resilience for free — Next.js converts
+// an unhandled exception there into a 500, which client-side fetch calls
+// already catch gracefully. A Server Component calling Prisma directly
+// during render has no such safety net: an uncaught DB error here crashes
+// the whole page, not just this section. Same fix as auth.ts's
+// authorize() catch — log server-side, degrade to an empty result,
+// don't let an infra blip take down more than the one section it affects.
+async function getOpenTasks(userId: string) {
+  try {
+    // Postgres enums sort by their declaration order in schema.prisma
+    // (LOW, MEDIUM, HIGH) — not alphabetically — so `priority: "desc"`
+    // here genuinely means "highest priority first."
+    return await prisma.task.findMany({
+      where: { userId, completed: false },
+      orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }],
+      take: 3,
+    });
+  } catch (err) {
+    console.error("[dashboard] Failed to load tasks:", err);
+    return [];
+  }
+}
+
 // Deliberately no fake data anywhere on this page. Every section either
-// shows something real (greeting, date, now: actual tasks) or an honest
-// empty state pointing at the phase that will fill it in — see
-// docs/PRD.md Section 5 ("quiet dashboard").
+// shows something real (greeting, date, tasks) or an honest empty state —
+// see docs/PRD.md Section 5 ("quiet dashboard").
 export default async function DashboardPage() {
   const session = await auth();
   const firstName = (session?.user?.name ?? session?.user?.email ?? "").split(" ")[0];
 
-  // Postgres enums sort by their declaration order in schema.prisma
-  // (LOW, MEDIUM, HIGH) — not alphabetically — so `priority: "desc"` here
-  // genuinely means "highest priority first," not a lucky coincidence.
-  const tasks = session?.user
-    ? await prisma.task.findMany({
-        where: { userId: session.user.id, completed: false },
-        orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-        take: 3,
-      })
-    : [];
+  const tasks = session?.user ? await getOpenTasks(session.user.id) : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-10">
