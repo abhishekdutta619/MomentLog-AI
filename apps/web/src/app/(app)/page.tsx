@@ -1,14 +1,32 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { MOOD_OPTIONS } from "@/lib/moods";
 
+const PRIORITY_LABELS: Record<string, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
 // Deliberately no fake data anywhere on this page. Every section either
-// shows something real (greeting, date) or an honest empty state pointing
-// at the phase that will fill it in — see docs/PRD.md Section 5 ("quiet
-// dashboard") and the brand doc's morning/evening mockups.
+// shows something real (greeting, date, now: actual tasks) or an honest
+// empty state pointing at the phase that will fill it in — see
+// docs/PRD.md Section 5 ("quiet dashboard").
 export default async function DashboardPage() {
   const session = await auth();
   const firstName = (session?.user?.name ?? session?.user?.email ?? "").split(" ")[0];
+
+  // Postgres enums sort by their declaration order in schema.prisma
+  // (LOW, MEDIUM, HIGH) — not alphabetically — so `priority: "desc"` here
+  // genuinely means "highest priority first," not a lucky coincidence.
+  const tasks = session?.user
+    ? await prisma.task.findMany({
+        where: { userId: session.user.id, completed: false },
+        orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }],
+        take: 3,
+      })
+    : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-10">
@@ -17,12 +35,6 @@ export default async function DashboardPage() {
       <section>
         <p className="mb-3 text-sm text-muted-foreground">How are you feeling today?</p>
         <div className="flex gap-3">
-          {/* Shared MOOD_OPTIONS (lib/moods.ts) instead of a locally
-              hardcoded list — this is what previously drifted to only 4
-              emoji instead of the brand doc's 5-point scale. The mood
-              now actually carries through: clicking pre-fills the
-              composer's mood picker via the ?mood= param, wired up in
-              Phase 2, Part 1. */}
           {MOOD_OPTIONS.map((mood) => (
             <a
               key={mood.score}
@@ -38,9 +50,28 @@ export default async function DashboardPage() {
 
       <section>
         <h2 className="mb-2 text-sm font-medium text-foreground">Today&apos;s focus</h2>
-        <p className="text-sm text-muted-foreground">
-          No tasks yet — task tracking arrives later in Phase 2.
-        </p>
+        {tasks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No open tasks.{" "}
+            <a href="/tasks" className="underline">
+              Add one
+            </a>
+            .
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {tasks.map((task) => (
+              <li key={task.id} className="text-sm text-foreground">
+                <a href="/tasks" className="hover:underline">
+                  {task.title}
+                </a>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {PRIORITY_LABELS[task.priority]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section>
