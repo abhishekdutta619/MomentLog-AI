@@ -10,6 +10,7 @@ export interface Moment {
   moodScore: number | null;
   weatherTempC: number | null;
   weatherCondition: string | null;
+  weatherIcon: string | null;
   aiSummary: string | null;
   createdAt: string;
   updatedAt: string;
