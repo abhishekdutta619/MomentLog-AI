@@ -59,12 +59,18 @@ export function MomentCard({
   }
 
   const moodEmoji = getMoodEmoji(moment.moodScore);
+  const hasWeather = moment.weatherIcon && moment.weatherTempC != null;
 
   return (
     <div className="border-b border-border py-6">
       <p className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         {moodEmoji && <span className="text-sm">{moodEmoji}</span>}
         {formatDate(moment.createdAt)}
+        {hasWeather && (
+          <span className="ml-1">
+            {moment.weatherIcon} {Math.round(moment.weatherTempC as number)}°C
+          </span>
+        )}
       </p>
 
       <p className="whitespace-pre-wrap text-sm text-foreground">{moment.content}</p>

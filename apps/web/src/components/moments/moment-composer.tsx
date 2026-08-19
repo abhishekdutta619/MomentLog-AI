@@ -6,6 +6,26 @@ import { Button } from "@/components/ui/button";
 import { TagInput } from "./tag-input";
 import { MoodPicker } from "./mood-picker";
 
+// Wrapped in a Promise that always resolves (never rejects) — geolocation
+// being denied, unavailable, or timing out are all just "no weather this
+// time," never an error that should interrupt saving a Moment. A 5s
+// timeout keeps a slow/stalled location fix from blocking the save
+// indefinitely; maximumAge lets the browser reuse a recent fix instead of
+// re-prompting for every single Moment in a session.
+function getCurrentCoords(): Promise<{ latitude: number; longitude: number } | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000, maximumAge: 10 * 60 * 1000 }
+    );
+  });
+}
+
 export function MomentComposer({
   initialContent = "",
   initialTags = [],
@@ -24,6 +44,8 @@ export function MomentComposer({
     content: string;
     tags: string[];
     moodScore: number | null;
+    latitude?: number;
+    longitude?: number;
   }) => Promise<void>;
   onCancel?: () => void;
   saveLabel?: string;
@@ -45,11 +67,19 @@ export function MomentComposer({
     setError(null);
     setSaving(true);
     try {
-      await onSave({ content: content.trim(), tags, moodScore });
+      // Only requested for new Moments — weather reflects when something
+      // was originally written, not when it was edited, so an edit never
+      // re-fetches or re-prompts for location.
+      const coords = isEditMode ? null : await getCurrentCoords();
+
+      await onSave({
+        content: content.trim(),
+        tags,
+        moodScore,
+        ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
+      });
+
       if (!isEditMode) {
-        // Fresh composer (create mode) — clear it after a successful save
-        // so it's ready for the next entry. Edit mode leaves the fields
-        // as-is since the parent unmounts this back into a card afterward.
         setContent("");
         setTags([]);
         setMoodScore(null);
