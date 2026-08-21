@@ -51,32 +51,47 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   const { content, tags, moodScore } = parsed.data;
 
-  const moment = await prisma.moment.update({
-    where: { id },
-    data: {
-      ...(content !== undefined ? { content } : {}),
-      // moodScore is nullable-and-optional in the schema: `undefined` means
-      // "field wasn't sent, leave it alone"; `null` means "clear it". Both
-      // need to be distinguishable, so this only touches moodScore when the
-      // key was actually present in the parsed payload.
-      ...(moodScore !== undefined ? { moodScore } : {}),
-      ...(tags !== undefined
-        ? {
-            tags: {
-              set: [],
-              connectOrCreate: tags.map((name) => ({
-                where: { userId_name: { userId, name } },
-                create: { userId, name },
-              })),
-            },
-          }
-        : {}),
-    },
-    include: { tags: true },
-  });
+  // Content changing is what makes the existing embedding/summary stale —
+  // compare against the pre-update row so a moodScore-only or tags-only
+  // PATCH doesn't trigger a needless re-embed.
+  const contentChanged = content !== undefined && content !== existing.content;
 
-  // Seam for Phase 4: if `content` changed, the old embedding is stale —
-  // re-enqueue EMBED + SUMMARIZE jobs here once the AI worker exists.
+  const moment = await prisma.$transaction(async (tx) => {
+    const updated = await tx.moment.update({
+      where: { id },
+      data: {
+        ...(content !== undefined ? { content } : {}),
+        // moodScore is nullable-and-optional in the schema: `undefined` means
+        // "field wasn't sent, leave it alone"; `null` means "clear it". Both
+        // need to be distinguishable, so this only touches moodScore when the
+        // key was actually present in the parsed payload.
+        ...(moodScore !== undefined ? { moodScore } : {}),
+        ...(tags !== undefined
+          ? {
+              tags: {
+                set: [],
+                connectOrCreate: tags.map((name) => ({
+                  where: { userId_name: { userId, name } },
+                  create: { userId, name },
+                })),
+              },
+            }
+          : {}),
+      },
+      include: { tags: true },
+    });
+
+    if (contentChanged) {
+      await tx.aIJob.createMany({
+        data: [
+          { momentId: id, type: "EMBED" },
+          { momentId: id, type: "SUMMARIZE" },
+        ],
+      });
+    }
+
+    return updated;
+  });
 
   return NextResponse.json(moment);
 }

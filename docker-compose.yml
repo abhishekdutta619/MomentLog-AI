@@ -10,6 +10,27 @@ services:
       - "5432:5432"
     volumes:
       - momentlog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U momentlog -d momentlog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai-worker:
+    build:
+      context: ./apps/ai-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://momentlog:momentlog@postgres:5432/momentlog
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - momentlog_hf_cache:/root/.cache/huggingface
 
 volumes:
   momentlog_postgres_data:
+  momentlog_hf_cache:

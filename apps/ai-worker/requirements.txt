@@ -1,0 +1,14 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+asyncpg==0.30.0
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+sentence-transformers==5.5.1
+transformers==5.15.1
+
+# torch is intentionally NOT listed here — it's installed as its own step
+# in the Dockerfile, pinned to the CPU-only wheel index. If it were listed
+# in this file instead, pip could resolve it from the default PyPI index
+# (which bundles the full CUDA/GPU stack) instead of the CPU-only one,
+# ballooning the image by several GB for a container that only ever runs
+# on CPU. See the Dockerfile for the actual install step.

@@ -72,26 +72,36 @@ export async function POST(req: Request) {
       ? await fetchCurrentWeather(latitude, longitude)
       : null;
 
-  const moment = await prisma.moment.create({
-    data: {
-      userId,
-      content,
-      moodScore: moodScore ?? null,
-      weatherTempC: weather?.tempC ?? null,
-      weatherCondition: weather?.condition ?? null,
-      weatherIcon: weather?.icon ?? null,
-      tags: {
-        connectOrCreate: tags.map((name) => ({
-          where: { userId_name: { userId, name } },
-          create: { userId, name },
-        })),
+  // Interactive transaction (not the array form) because the AIJob rows
+  // need the created Moment's id, which only exists after the create runs.
+  const moment = await prisma.$transaction(async (tx) => {
+    const created = await tx.moment.create({
+      data: {
+        userId,
+        content,
+        moodScore: moodScore ?? null,
+        weatherTempC: weather?.tempC ?? null,
+        weatherCondition: weather?.condition ?? null,
+        weatherIcon: weather?.icon ?? null,
+        tags: {
+          connectOrCreate: tags.map((name) => ({
+            where: { userId_name: { userId, name } },
+            create: { userId, name },
+          })),
+        },
       },
-    },
-    include: { tags: true },
-  });
+      include: { tags: true },
+    });
 
-  // Seam for Phase 4: enqueue EMBED + SUMMARIZE AIJob rows in the same
-  // transaction as the create above, once the AI provider is chosen.
+    await tx.aIJob.createMany({
+      data: [
+        { momentId: created.id, type: "EMBED" },
+        { momentId: created.id, type: "SUMMARIZE" },
+      ],
+    });
+
+    return created;
+  });
 
   return NextResponse.json(moment, { status: 201 });
 }

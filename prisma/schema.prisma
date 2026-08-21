@@ -1,6 +1,11 @@
 // MomentLog AI — Prisma schema (MVP)
-// Single source of truth: also generates a Python client (prisma-client-py)
-// for the FastAPI AI worker, so both services share one schema.
+// Single source of truth for the schema itself. The FastAPI AI worker
+// (apps/ai-worker) was originally planned to consume this via
+// prisma-client-py, but that package is no longer maintained (deprecated
+// as of March 2025) — the worker instead talks to the same DATABASE_URL
+// directly via asyncpg. Column/table names in its raw SQL must be kept in
+// sync with this file by hand (Prisma's default casing, e.g. "AIJob",
+// "momentId").
 
 generator client {
   provider        = "prisma-client-js"
@@ -122,8 +127,8 @@ model MomentEmbedding {
   momentId String @unique
   moment   Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
 
-  vector Unsupported("vector(1536)")
-  model  String // e.g. "text-embedding-3-small" — kept so we can re-embed cleanly if the model changes
+  vector Unsupported("vector(384)")
+  model  String // e.g. "all-MiniLM-L6-v2" — kept so we can re-embed cleanly if the model changes
 
   createdAt DateTime @default(now())
 }
